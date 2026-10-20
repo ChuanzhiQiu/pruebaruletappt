@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Sorteo en Vivo</title>
+  <title>Sorteo en Vivo - PressReader</title>
+  <!-- Animación de confeti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -21,26 +22,28 @@
     }
     h1 {
       margin: 0 0 10px 0;
-      font-size: 1.8rem;
+      font-size: 2rem;
       letter-spacing: 1px;
       color: #38bdf8;
+      text-transform: uppercase;
     }
     #status {
-      font-size: 0.95rem;
+      font-size: 1rem;
       color: #94a3b8;
-      margin-bottom: 12px;
+      margin-bottom: 15px;
     }
     .wheel-container {
       position: relative;
-      width: 420px;
-      height: 420px;
+      width: 440px;
+      height: 440px;
     }
     #wheel-canvas {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
     }
+    /* Flecha marcadora a la derecha */
     .arrow {
       position: absolute;
       right: -15px;
@@ -51,20 +54,20 @@
       border-top: 18px solid transparent;
       border-bottom: 18px solid transparent;
       border-right: 32px solid #ef4444;
-      filter: drop-shadow(-3px 0 4px rgba(0,0,0,0.4));
+      filter: drop-shadow(-3px 0 4px rgba(0,0,0,0.5));
       z-index: 10;
     }
     #spin-btn {
-      margin-top: 18px;
-      padding: 12px 36px;
-      font-size: 1.2rem;
+      margin-top: 20px;
+      padding: 14px 40px;
+      font-size: 1.25rem;
       font-weight: 700;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: #ffffff;
       border: none;
       border-radius: 9999px;
       cursor: pointer;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
       transition: transform 0.15s ease, background 0.2s ease;
     }
     #spin-btn:hover {
@@ -78,19 +81,19 @@
       box-shadow: none;
     }
     #winner-banner {
-      margin-top: 12px;
-      font-size: 1.6rem;
+      margin-top: 15px;
+      font-size: 1.8rem;
       font-weight: 800;
       color: #facc15;
-      min-height: 2rem;
+      min-height: 2.5rem;
       text-align: center;
-      text-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+      text-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
     }
   </style>
 </head>
 <body>
 
-  <h1>SORTEO EN VIVO</h1>
+  <h1>Sorteo en Vivo</h1>
   <div id="status">Cargando participantes...</div>
 
   <div class="wheel-container">
@@ -102,4 +105,132 @@
   <div id="winner-banner"></div>
 
   <script>
-    const CSV_URL = '
+    // Enlace directo en tiempo real (sin caché de publicación)
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/1-tcUYBd3mhE9W_Y8QeumQYSmT5myGmY9uj1yqIE-75A/export?format=csv';
+
+    let names = [];
+    const canvas = document.getElementById('wheel-canvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spin-btn');
+    const statusText = document.getElementById('status');
+    const winnerBanner = document.getElementById('winner-banner');
+
+    async function fetchCSV() {
+      try {
+        // nocache evita que el navegador guarde respuestas previas
+        const urlFinal = CSV_URL + '&nocache=' + Date.now();
+        const res = await fetch(urlFinal);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        
+        // Saltamos cabecera y tomamos Columna B (Nombre) + Columna C (Apellido)
+        names = lines.slice(1).map(row => {
+          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+          const nombre = cols[1] ? cols[1].replace(/"/g, '').trim() : '';
+          const apellido = cols[2] ? cols[2].replace(/"/g, '').trim() : '';
+          const nombreCompleto = `${nombre} ${apellido}`.trim();
+          return nombreCompleto.length > 0 ? nombreCompleto : null;
+        }).filter(Boolean);
+
+        if (names.length === 0) {
+          statusText.innerText = "Aún no hay participantes registrados.";
+          names = ["Esperando datos..."];
+          drawWheel(0);
+        } else {
+          statusText.innerText = `${names.length} participante(s) registrado(s) en vivo`;
+          spinBtn.disabled = false;
+          drawWheel(0);
+        }
+      } catch (err) {
+        statusText.innerText = "Error cargando la lista. Verifica los permisos de acceso del Sheet.";
+        console.error(err);
+      }
+    }
+
+    function drawWheel(angle) {
+      const n = names.length;
+      const arc = (2 * Math.PI) / n;
+      const cx = 300;
+      const cy = 300;
+      const r = 285;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      names.forEach((name, i) => {
+        const segAngle = angle + i * arc;
+        ctx.beginPath();
+        ctx.fillStyle = `hsl(${(i * 360) / n}, 75%, 45%)`;
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, segAngle, segAngle + arc);
+        ctx.lineTo(cx, cy);
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(segAngle + arc / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        const displayName = name.length > 20 ? name.substring(0, 18) + '...' : name;
+        ctx.fillText(displayName, r - 25, 7);
+        ctx.restore();
+      });
+
+      // Centro de la ruleta
+      ctx.beginPath();
+      ctx.arc(cx, cy, 35, 0, 2 * Math.PI);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+
+    let currentAngle = 0;
+    spinBtn.addEventListener('click', () => {
+      spinBtn.disabled = true;
+      winnerBanner.innerText = '';
+      
+      const duration = 5000;
+      const start = performance.now();
+      const totalRotation = Math.PI * 2 * (6 + Math.random() * 4);
+
+      function frame(now) {
+        const elapsed = now - start;
+        const p = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - p, 4);
+        const angle = currentAngle + totalRotation * easeOut;
+        drawWheel(angle);
+
+        if (p < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          currentAngle = angle % (Math.PI * 2);
+          const arc = (2 * Math.PI) / names.length;
+          const adjusted = (2 * Math.PI - (currentAngle % (Math.PI * 2))) % (Math.PI * 2);
+          const winnerIndex = Math.floor(adjusted / arc);
+          
+          const ganador = names[winnerIndex];
+          winnerBanner.innerText = `🎉 ¡GANADOR/A: ${ganador.toUpperCase()}! 🎉`;
+          
+          confetti({
+            particleCount: 150,
+            spread: 90,
+            origin: { y: 0.6 }
+          });
+          
+          spinBtn.disabled = false;
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+
+    fetchCSV();
+  </script>
+</body>
+</html>
